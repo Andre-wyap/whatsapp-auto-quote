@@ -3,7 +3,7 @@
 Derived from [CLAUDE.md](CLAUDE.md). Ordered to follow the spec's build order: prove the
 WhatsApp session works first, then the send path, then the dashboard, then production routing.
 
-**Status:** Phases 0–4 done. `https://waa.finnomalaysia.com` is live with a valid cert, and a real
+**Status:** Phases 0–4 and 7 done. `https://waa.finnomalaysia.com` is live with a valid cert, and a real
 message has been sent end-to-end through the production URL. Next: wire up n8n (Phase 5).
 
 ---
@@ -261,3 +261,39 @@ that router, but out of scope here.
 - [x] Short runbook written into `README.md` ("Runbook: dashboard shows Inactive or Error") —
       Inactive → Reconnect → scan QR; Error → check Evolution container/network first, Reconnect
       won't fix that case.
+
+---
+
+## Phase 7 — Brochure PDFs (added after Phase 6, scope change)
+
+Overrides the Phase 0 "text-only" decision: clients now get the quote text, then the matching
+product brochure as a second WhatsApp message.
+
+- [x] **Two static brochures, selected by the age band `Build Quote` already computes** — no
+      per-lead PDF generation:
+      - `copayment` → `Allianz HealthAssured Brochure.pdf` (band 0–40, 15% co-payment)
+      - `deductible` → `Allianz HealthInsured Brochure.pdf` (bands 41–60 *and* 61–70 — one
+        brochure covers both the RM5,000 and RM10,000 deductible)
+- [x] `POST /send-document` with `{number, document}`, on the same Bearer token as `/send`.
+      **Deliberately a separate endpoint, not optional fields on `/send`:** the text and the PDF
+      are two separate WhatsApp messages anyway, since WhatsApp caps document captions at ~1024
+      chars and `quoteText` is already close to that.
+- [x] **`document` is a logical name, never a path or filename** — so the n8n-facing surface can't
+      be coaxed into reading arbitrary files off disk. Unknown name → `400 unknown_document` with
+      the allowed list. Covered by a test that feeds it `../.env`, `/etc/passwd` etc.
+- [x] `src/documents.js` loads both PDFs to base64 **at startup**, so a deploy that forgot to ship
+      them fails immediately rather than on the first real client send.
+- [x] Base64 rather than a URL for Evolution: no public `waa.finnomalaysia.com/pdf/...` path to
+      scrape, and Evolution never has to fetch anything over the network.
+- [x] **Media sends get a 90s timeout** (text keeps 15s) — the brochures are 1–4MB and Evolution
+      re-uploads them to WhatsApp. In practice the 3.4MB one completed in **under 3 seconds**, and
+      Evolution's request body limit turned out to be a non-issue.
+- [x] Tests: `test/document.test.js` (10 cases, including a real-file test asserting both PDFs are
+      present and actually start with `%PDF`). **Suite now 54/54 passing.**
+- [x] Deployed and verified against production — both brochures sent to `601154047463` through
+      `https://waa.finnomalaysia.com/send-document`, and `../.env` correctly rejected.
+- [x] PDFs committed to the public GitHub repo (your call, asked first) so a clean clone builds.
+- [x] `CLAUDE.md` updated: scope, the `/send-document` contract + band→brochure table, the
+      `/message/sendMedia` row, and open question 2 marked resolved.
+- [ ] **Still needs you:** add the second HTTP Request node in n8n (snippet provided in chat) —
+      `POST /send-document`, same `Auto Quote Token` credential, after `Send WhatsApp Quote`.
