@@ -14,6 +14,8 @@ message has been sent end-to-end through the production URL. Next: wire up n8n (
       existing session gets disconnected.
 - [x] **Open question 2 — media:** **text-only.** `/send` stays `{number, message}` → `/message/sendText`,
       as originally proposed. No `/message/sendMedia` support needed.
+      ⚠️ **Superseded by Phase 7** — brochure PDFs were added later via a separate
+      `POST /send-document`. `/send` itself is unchanged, so this decision still holds for it.
 - [x] **Open question 3 — failure notifications:** **dashboard status is enough.** No email/Telegram/n8n
       error-workflow hook; `/send` just returns `ok:false` and n8n owns what happens next.
 - [x] Stack: **Node 20 + Fastify** (no objection raised; proceeding with this).
