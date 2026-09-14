@@ -1,0 +1,405 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Auto Quote — WhatsApp Session</title>
+<style>
+  :root{
+    --bg:#f5f4ef;
+    --surface:#ffffff;
+    --surface-2:#eef0ea;
+    --ink:#1a1e1a;
+    --ink-muted:#5c6259;
+    --accent:#1f7a5c;
+    --accent-strong:#145940;
+    --border:#dde1d8;
+    --warn:#9a6b12;
+    --warn-bg:#f7edd9;
+    --danger:#a4291f;
+    --danger-bg:#fbe6e3;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#12140f;
+      --surface:#1a1e17;
+      --surface-2:#21261d;
+      --ink:#edf0e8;
+      --ink-muted:#9aa294;
+      --accent:#4fbd8c;
+      --accent-strong:#6fd1a3;
+      --border:#2c3226;
+      --warn:#e0b968;
+      --warn-bg:#2c2412;
+      --danger:#ff8177;
+      --danger-bg:#2c1815;
+    }
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+    padding-inline:16px;
+    padding-block:48px;
+    display:flex;
+    justify-content:center;
+  }
+  main{
+    width:100%;
+    max-width:460px;
+    display:flex;
+    flex-direction:column;
+    gap:20px;
+  }
+  [hidden]{display:none!important;}
+
+  .eyebrow{
+    font-size:11px;
+    letter-spacing:.09em;
+    text-transform:uppercase;
+    color:var(--accent-strong);
+    font-weight:600;
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .eyebrow::before{
+    content:"";
+    width:6px;height:6px;border-radius:50%;
+    background:var(--accent);
+    flex:none;
+  }
+  h1{
+    font-family:ui-serif,Georgia,serif;
+    font-weight:600;
+    font-size:28px;
+    line-height:1.2;
+    margin:4px 0 0;
+    text-wrap:balance;
+  }
+
+  .card{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:14px;
+    padding:20px;
+    display:flex;
+    flex-direction:column;
+    gap:14px;
+  }
+
+  /* Login */
+  #login-view label{
+    font-size:13px;
+    font-weight:600;
+    color:var(--ink-muted);
+  }
+  #login-view input{
+    width:100%;
+    margin-top:6px;
+    padding:10px 12px;
+    border:1px solid var(--border);
+    border-radius:8px;
+    background:var(--bg);
+    color:var(--ink);
+    font-size:15px;
+  }
+  #login-error{
+    color:var(--danger);
+    font-size:13px;
+    min-height:1em;
+  }
+
+  button{
+    font:inherit;
+    font-weight:600;
+    font-size:14px;
+    border:none;
+    border-radius:8px;
+    padding:10px 16px;
+    cursor:pointer;
+    background:var(--accent);
+    color:#fff;
+  }
+  button:hover{background:var(--accent-strong);}
+  button:focus-visible{outline:2px solid var(--accent-strong);outline-offset:2px;}
+  button.secondary{
+    background:transparent;
+    color:var(--ink-muted);
+    border:1px solid var(--border);
+  }
+  button.secondary:hover{color:var(--ink);border-color:var(--ink-muted);}
+
+  /* Status */
+  .status-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+  }
+  .badge{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    font-weight:600;
+    font-size:15px;
+    padding:6px 12px;
+    border-radius:999px;
+  }
+  .badge::before{content:"";width:8px;height:8px;border-radius:50%;}
+  .badge.active{background:var(--warn-bg);color:var(--accent-strong);background:color-mix(in srgb, var(--accent) 15%, transparent);}
+  .badge.active::before{background:var(--accent);}
+  .badge.inactive{background:color-mix(in srgb, var(--warn) 18%, transparent);color:var(--warn);}
+  .badge.inactive::before{background:var(--warn);}
+  .badge.error{background:var(--danger-bg);color:var(--danger);}
+  .badge.error::before{background:var(--danger);}
+
+  .checked-at{
+    font-size:12.5px;
+    color:var(--ink-muted);
+  }
+
+  /* QR */
+  #qr-panel{align-items:center;text-align:center;}
+  .qr-frame{
+    background:#ffffff;
+    border-radius:10px;
+    padding:12px;
+    line-height:0;
+  }
+  .qr-frame img{display:block;width:200px;height:200px;max-width:100%;}
+  .qr-placeholder{
+    width:200px;height:200px;max-width:100%;
+    display:flex;align-items:center;justify-content:center;
+    color:var(--ink-muted);font-size:13px;
+    border:1px dashed var(--border);border-radius:10px;
+  }
+  #qr-hint{font-size:13px;color:var(--ink-muted);line-height:1.5;max-width:34ch;}
+  #qr-actions{display:flex;gap:10px;}
+
+  footer{
+    font-size:12.5px;
+    color:var(--ink-muted);
+    text-align:center;
+  }
+</style>
+</head>
+<body>
+<main>
+  <div>
+    <div class="eyebrow">WhatsApp Auto Quote</div>
+    <h1>Session dashboard</h1>
+  </div>
+
+  <section id="login-view" class="card">
+    <p style="margin:0;font-size:14px;color:var(--ink-muted);">
+      Enter the dashboard password to view session status and connect WhatsApp.
+    </p>
+    <form id="login-form">
+      <label for="password">Password</label>
+      <input id="password" name="password" type="password" autocomplete="current-password" required>
+      <p id="login-error"></p>
+      <button type="submit">Log in</button>
+    </form>
+  </section>
+
+  <section id="dashboard-view" hidden style="display:flex;flex-direction:column;gap:20px;">
+    <div class="card">
+      <div class="status-row">
+        <span id="status-badge" class="badge inactive">Checking&hellip;</span>
+        <button class="secondary" id="logout-btn" type="button">Log out</button>
+      </div>
+      <p class="checked-at" id="checked-at">Last checked: &mdash;</p>
+    </div>
+
+    <div class="card" id="qr-panel" hidden>
+      <div class="qr-frame">
+        <img id="qr-image" alt="WhatsApp linking QR code" hidden>
+        <div id="qr-placeholder" class="qr-placeholder">Loading QR&hellip;</div>
+      </div>
+      <p id="qr-hint">
+        WhatsApp &rarr; Settings (or &#8942; menu) &rarr; Linked Devices &rarr; Link a Device, then
+        scan this code. It expires after about a minute and refreshes automatically.
+      </p>
+      <div id="qr-actions">
+        <button id="reconnect-btn" type="button">Reconnect / refresh QR</button>
+      </div>
+    </div>
+  </section>
+
+  <footer>Status refreshes automatically. This page shows connection state only &mdash;
+    no message history, chats, or contacts.</footer>
+</main>
+
+<script>
+(() => {
+  const loginView = document.getElementById('login-view')
+  const dashboardView = document.getElementById('dashboard-view')
+  const loginForm = document.getElementById('login-form')
+  const loginError = document.getElementById('login-error')
+  const statusBadge = document.getElementById('status-badge')
+  const checkedAt = document.getElementById('checked-at')
+  const logoutBtn = document.getElementById('logout-btn')
+  const qrPanel = document.getElementById('qr-panel')
+  const qrImage = document.getElementById('qr-image')
+  const qrPlaceholder = document.getElementById('qr-placeholder')
+  const reconnectBtn = document.getElementById('reconnect-btn')
+
+  const STATUS_POLL_MS = 12_000
+  const QR_POLL_MS = 25_000
+  let statusTimer = null
+  let qrTimer = null
+  let lastStatus = null
+
+  async function api(path, opts) {
+    const res = await fetch(path, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+      ...opts,
+    })
+    return { res, body: await res.json().catch(() => ({})) }
+  }
+
+  function renderStatus(data) {
+    const status = data.status ?? 'Error'
+    statusBadge.textContent = status
+    statusBadge.className = 'badge ' + status.toLowerCase()
+    checkedAt.textContent = 'Last checked: ' + new Date(data.checkedAt ?? Date.now()).toLocaleString()
+
+    const wasActive = lastStatus === 'Active'
+    lastStatus = status
+
+    if (status === 'Active') {
+      qrPanel.hidden = true
+      stopQrPolling()
+    } else {
+      qrPanel.hidden = false
+      if (wasActive || !qrTimer) {
+        refreshQr()
+        startQrPolling()
+      }
+    }
+  }
+
+  async function pollStatus() {
+    const { res, body } = await api('/api/status')
+    if (res.status === 401) return showLogin()
+    renderStatus(body)
+  }
+
+  async function refreshQr() {
+    qrImage.hidden = true
+    qrPlaceholder.hidden = false
+    qrPlaceholder.textContent = 'Loading QR…'
+    const { res, body } = await api('/api/qr')
+    if (res.status === 401) return showLogin()
+    if (body.ok && body.qrBase64) {
+      qrImage.src = body.qrBase64
+      qrImage.hidden = false
+      qrPlaceholder.hidden = true
+    } else {
+      qrPlaceholder.textContent = body.ok
+        ? 'Already connected — no QR needed.'
+        : 'Could not reach Evolution API for a QR code.'
+    }
+  }
+
+  async function reconnect() {
+    reconnectBtn.disabled = true
+    reconnectBtn.textContent = 'Reconnecting…'
+    const { res, body } = await api('/api/reconnect', { method: 'POST' })
+    reconnectBtn.disabled = false
+    reconnectBtn.textContent = 'Reconnect / refresh QR'
+    if (res.status === 401) return showLogin()
+    if (body.ok && body.qrBase64) {
+      qrImage.src = body.qrBase64
+      qrImage.hidden = false
+      qrPlaceholder.hidden = true
+    }
+    pollStatus()
+  }
+
+  function startStatusPolling() {
+    stopStatusPolling()
+    statusTimer = setInterval(pollStatus, STATUS_POLL_MS)
+  }
+  function stopStatusPolling() {
+    if (statusTimer) clearInterval(statusTimer)
+    statusTimer = null
+  }
+  function startQrPolling() {
+    stopQrPolling()
+    qrTimer = setInterval(refreshQr, QR_POLL_MS)
+  }
+  function stopQrPolling() {
+    if (qrTimer) clearInterval(qrTimer)
+    qrTimer = null
+  }
+
+  function showDashboard() {
+    loginView.hidden = true
+    dashboardView.hidden = false
+    lastStatus = null
+    pollStatus()
+    startStatusPolling()
+  }
+
+  function showLogin() {
+    dashboardView.hidden = true
+    loginView.hidden = false
+    stopStatusPolling()
+    stopQrPolling()
+  }
+
+  loginForm.addEventListener('submit', async (e) => {
+    e.preventDefault()
+    loginError.textContent = ''
+    const password = document.getElementById('password').value
+    const { res, body } = await api('/api/login', {
+      method: 'POST',
+      body: JSON.stringify({ password }),
+    })
+    if (res.ok && body.ok) {
+      document.getElementById('password').value = ''
+      showDashboard()
+    } else {
+      loginError.textContent = 'Incorrect password.'
+    }
+  })
+
+  logoutBtn.addEventListener('click', async () => {
+    await api('/api/logout', { method: 'POST' })
+    showLogin()
+  })
+
+  reconnectBtn.addEventListener('click', reconnect)
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      stopStatusPolling()
+      stopQrPolling()
+    } else if (!dashboardView.hidden) {
+      pollStatus()
+      startStatusPolling()
+      if (!qrPanel.hidden) startQrPolling()
+    }
+  })
+
+  // Boot: does a session already exist?
+  ;(async () => {
+    const { res, body } = await api('/api/status')
+    if (res.status === 401) {
+      showLogin()
+    } else {
+      dashboardView.hidden = false
+      loginView.hidden = true
+      renderStatus(body)
+      startStatusPolling()
+    }
+  })()
+})()
+</script>
+</body>
+</html>

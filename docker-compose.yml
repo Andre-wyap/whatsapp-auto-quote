@@ -1,0 +1,36 @@
+services:
+  auto-quote:
+    build: .
+    image: auto-quote:latest
+    container_name: auto-quote
+    restart: unless-stopped
+    env_file: .env
+    # No `ports:` — Traefik reaches this over the shared network by service
+    # name, and Evolution API stays unreachable from outside it.
+    networks:
+      - root_default
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://localhost:'+(process.env.PORT||3000)+'/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.auto-quote.rule=Host(`waa.finnomalaysia.com`)
+      - traefik.http.routers.auto-quote.entrypoints=web,websecure
+      - traefik.http.routers.auto-quote.tls=true
+      - traefik.http.routers.auto-quote.tls.certresolver=mytlschallenge
+      - traefik.http.services.auto-quote.loadbalancer.server.port=3000
+
+networks:
+  # Pre-existing network that evolution-api, root-traefik-1, and root-n8n-1
+  # are already on (confirmed in Phase 0) — not created by this compose file.
+  root_default:
+    external: true
