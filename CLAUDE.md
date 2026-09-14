@@ -13,11 +13,13 @@ It does not generate quotes, store conversation history, or handle inbound repli
 ### In scope
 - Accept a packaged message from n8n via HTTP
 - Send that message to the client through Evolution API
+- Send the matching product brochure PDF as a follow-up WhatsApp document
 - Dashboard to connect WhatsApp via QR code
 - Dashboard to display live session status: **Active / Inactive / Error**
 
 ### Out of scope
 - Quote generation logic (lives in n8n)
+- Generating per-lead PDFs — the brochures are static files shipped in the image
 - Inbound message handling / two-way chat
 - Session or message history
 - Contact management / CRM
@@ -110,6 +112,35 @@ or
 { "ok": false, "error": "instance_disconnected" }
 ```
 
+**Brochure endpoint**
+
+The quote text and the PDF go out as two separate WhatsApp messages, so this is
+a separate endpoint rather than optional fields on `/send` (WhatsApp caps
+document captions at ~1024 characters and the quote text is already close).
+
+```
+POST /send-document
+Content-Type: application/json
+Authorization: Bearer <AUTO_QUOTE_TOKEN>
+
+{
+  "number": "60123456789",
+  "document": "copayment"
+}
+```
+
+`document` is a **logical name**, never a path or filename — so n8n cannot be
+coaxed into reading arbitrary files off disk. The two brochures live in
+`documents/` and are loaded into memory at startup:
+
+| `document` | Age band | Plan | File sent to the client |
+|---|---|---|---|
+| `copayment` | 0–40 | 15% co-payment | `Allianz HealthAssured Brochure.pdf` |
+| `deductible` | 41–60 and 61–70 | RM5,000 / RM10,000 deductible | `Allianz HealthInsured Brochure.pdf` |
+
+One brochure covers both deductible bands. An unknown name returns
+`400 {ok:false, error:'unknown_document', allowed:[...]}`.
+
 ### 2. Dashboard (new)
 
 Single page, no auth-heavy setup needed beyond a simple login or token.
@@ -170,6 +201,7 @@ Add one HTTP Request node after the auto-quote packaging node, pointing at the A
 | Get QR / connect | GET | `/instance/connect/{instance}` |
 | Check status | GET | `/instance/connectionState/{instance}` |
 | Send text message | POST | `/message/sendText/{instance}` |
+| Send PDF document | POST | `/message/sendMedia/{instance}` |
 | Logout instance | DELETE | `/instance/logout/{instance}` |
 
 All calls require the `apikey` header.
@@ -249,5 +281,8 @@ n8n owns retry policy — the service itself does not queue or retry.
 ## Open questions
 
 - Which WhatsApp number will `auto-quote` use — a new one, or the same number already connected to another instance? (A number can only be bound to one instance at a time.)
-- Any media in the quote (PDF, image), or text only? Media needs a different Evolution endpoint (`/message/sendMedia`).
+- ~~Any media in the quote (PDF, image), or text only?~~ **Resolved:** text, then a
+  static product brochure PDF as a second message via `/message/sendMedia` — see
+  `POST /send-document` above. Two brochures, selected by the age band n8n already
+  computes. No per-lead PDF generation.
 - Should failed sends notify anywhere (email, Telegram, n8n error workflow), or is the dashboard status enough?

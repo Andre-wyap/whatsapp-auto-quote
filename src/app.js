@@ -5,15 +5,17 @@
 import Fastify from 'fastify'
 import cookie from '@fastify/cookie'
 import { createEvolutionClient } from './evolution.js'
+import { createDocumentStore } from './documents.js'
 import { registerSendRoutes } from './routes/send.js'
 import { registerDashboardRoutes } from './routes/dashboard.js'
 
 /**
  * @param {import('./config.js').loadConfig extends (...a: any) => infer R ? R : never} config
- * @param {{ evolutionClient?: ReturnType<typeof createEvolutionClient>, logger?: boolean }} [deps] - for tests.
+ * @param {{ evolutionClient?: ReturnType<typeof createEvolutionClient>, documentStore?: ReturnType<typeof createDocumentStore>, logger?: boolean }} [deps] - for tests.
  */
 export function buildApp(config, deps = {}) {
   const evolutionClient = deps.evolutionClient ?? createEvolutionClient(config)
+  const documentStore = deps.documentStore ?? createDocumentStore()
   // trustProxy: this always sits behind Traefik in production, so
   // request.protocol needs X-Forwarded-Proto to know the browser is on
   // https (for the dashboard's Secure cookie) rather than assuming the
@@ -34,7 +36,7 @@ export function buildApp(config, deps = {}) {
     return reply.code(500).send({ ok: false, error: 'internal_error' })
   })
 
-  registerSendRoutes(app, config, evolutionClient)
+  registerSendRoutes(app, config, evolutionClient, documentStore)
   registerDashboardRoutes(app, config, evolutionClient)
 
   return app

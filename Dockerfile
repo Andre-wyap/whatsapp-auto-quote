@@ -8,6 +8,7 @@ COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
 
 COPY src ./src
+COPY documents ./documents
 
 # Runs as the image's built-in unprivileged user rather than root.
 USER node

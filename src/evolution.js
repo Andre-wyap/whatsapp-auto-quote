@@ -3,6 +3,9 @@
 // against this exact Evolution API version (v2.3.7), not guessed from docs.
 
 const TIMEOUT_MS = 15_000
+// Media goes out as base64 and Evolution then uploads it on to WhatsApp, so
+// the round trip is far slower than a text send — the brochures are 1-4MB.
+const MEDIA_TIMEOUT_MS = 90_000
 
 export class EvolutionError extends Error {
   /**
@@ -17,7 +20,7 @@ export class EvolutionError extends Error {
   }
 }
 
-async function request(config, path, { method = 'GET', body } = {}) {
+async function request(config, path, { method = 'GET', body, timeoutMs = TIMEOUT_MS } = {}) {
   let res
   try {
     res = await fetch(`${config.evolutionApiUrl}${path}`, {
@@ -27,7 +30,7 @@ async function request(config, path, { method = 'GET', body } = {}) {
         'Content-Type': 'application/json',
       },
       body: body !== undefined ? JSON.stringify(body) : undefined,
-      signal: AbortSignal.timeout(TIMEOUT_MS),
+      signal: AbortSignal.timeout(timeoutMs),
     })
   } catch (err) {
     // Network failure, DNS failure, or the AbortSignal timeout firing —
@@ -86,6 +89,28 @@ export async function sendText(config, { number, message }) {
 }
 
 /**
+ * @param {{ number: string, base64: string, fileName: string }} input - number must already be normalized.
+ * @returns {Promise<{ key?: { id?: string } }>}
+ */
+export async function sendMedia(config, { number, base64, fileName }) {
+  return request(
+    config,
+    `/message/sendMedia/${encodeURIComponent(config.evolutionInstance)}`,
+    {
+      method: 'POST',
+      timeoutMs: MEDIA_TIMEOUT_MS,
+      body: {
+        number,
+        mediatype: 'document',
+        mimetype: 'application/pdf',
+        media: base64,
+        fileName,
+      },
+    }
+  )
+}
+
+/**
  * Requests a pairing QR for the instance. Evolution returns no usable QR
  * fields once the instance is already `open` — callers should check
  * connection state first rather than rely on this to signal that.
@@ -116,6 +141,7 @@ export function createEvolutionClient(config) {
   return {
     getConnectionState: () => getConnectionState(config),
     sendText: (input) => sendText(config, input),
+    sendMedia: (input) => sendMedia(config, input),
     connect: () => connectInstance(config),
     logout: () => logoutInstance(config),
   }
