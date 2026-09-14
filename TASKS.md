@@ -299,3 +299,31 @@ product brochure as a second WhatsApp message.
       `/message/sendMedia` row, and open question 2 marked resolved.
 - [ ] **Still needs you:** add the second HTTP Request node in n8n (snippet provided in chat) —
       `POST /send-document`, same `Auto Quote Token` credential, after `Send WhatsApp Quote`.
+
+---
+
+## Phase 8 — Bug found by the first real lead
+
+- [x] **`[object Object]` bug fixed (`src/evolution.js`).** The first real lead through the n8n
+      workflow failed, and the Stop and Error node reported
+      `WhatsApp delivery failed for (): [object Object]` — useless. Root cause was mine: Evolution
+      reports an unreachable number as an *array of objects*
+      (`[{exists:false, jid, number}]`), and both `String(obj)` and `[obj].join('; ')` collapse
+      that to `"[object Object]"`, destroying the only diagnostic detail in the response.
+- [x] Objects inside Evolution error payloads are now `JSON.stringify`'d rather than coerced.
+- [x] **New error code `number_not_on_whatsapp`**, returned when Evolution says `exists: false`.
+      Given the number comes from a web form, this is the failure n8n will hit most often, so it
+      gets a stable machine-readable code rather than an opaque passthrough string.
+- [x] Error mapping extracted into one shared `sendFailure()` so `/send` and `/send-document`
+      can't drift apart.
+- [x] **Root cause of the actual failure was the lead's number, not the code:** `601236533468`
+      returns `exists:false` from Evolution's `/chat/whatsappNumbers` — it's one digit too long
+      for an `012` mobile, so almost certainly a typo in the form submission. `/send` now says so
+      plainly instead of `[object Object]`.
+- [x] Verified in production against that exact number → `{"ok":false,"error":"number_not_on_whatsapp"}`,
+      and a real number still sends fine. Tests 56/56.
+- [ ] **Consider (not done):** the phone normalizer accepts `/^601\d{8,9}$/`, so it can't catch a
+      wrong-length number for a given prefix (`011`/`015` are 11 local digits, `012`/`013`/etc are
+      10). Tightening it would reject typos at the `400` stage instead of after a failed send —
+      left alone deliberately, since a wrong prefix table would reject *real* customers, which is
+      the worse failure.

@@ -258,6 +258,7 @@ VPS currently has ~2.2Gi available memory and 40GB free disk. This service is li
 | Scenario | Behaviour |
 |---|---|
 | Session not connected | Return `ok: false` with `instance_disconnected`; dashboard shows **Inactive** |
+| Number has no WhatsApp account | Return `ok: false` with `number_not_on_whatsapp` — the most common real failure, since the number is whatever a lead typed into a web form |
 | Invalid / unreachable number | Return `ok: false` with the Evolution error; n8n logs it |
 | Evolution API down | Return `ok: false` with `upstream_unavailable`; dashboard shows **Error** |
 | Bad/missing token | `401` |

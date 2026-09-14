@@ -37,6 +37,14 @@ export function registerSendRoutes(app, config, evolutionClient, documentStore) 
     }
   }
 
+  /** Maps an Evolution failure onto the `ok:false` body n8n branches on. */
+  const sendFailure = (err, reply) => {
+    if (err.code === 'upstream_unavailable' || err.code === 'number_not_on_whatsapp') {
+      return reply.send({ ok: false, error: err.code })
+    }
+    return reply.send({ ok: false, error: err.message })
+  }
+
   /** True if the instance is connected; sends the `ok:false` body itself if not. */
   const instanceReady = async (request, reply) => {
     try {
@@ -89,10 +97,7 @@ export function registerSendRoutes(app, config, evolutionClient, documentStore) 
           { err, code: err.code, number: normalizedNumber },
           'send failed'
         )
-        if (err.code === 'upstream_unavailable') {
-          return reply.send({ ok: false, error: 'upstream_unavailable' })
-        }
-        return reply.send({ ok: false, error: err.message })
+        return sendFailure(err, reply)
       }
       throw err
     }
@@ -149,10 +154,7 @@ export function registerSendRoutes(app, config, evolutionClient, documentStore) 
           { err, code: err.code, number: normalizedNumber, document },
           'document send failed'
         )
-        if (err.code === 'upstream_unavailable') {
-          return reply.send({ ok: false, error: 'upstream_unavailable' })
-        }
-        return reply.send({ ok: false, error: err.message })
+        return sendFailure(err, reply)
       }
       throw err
     }

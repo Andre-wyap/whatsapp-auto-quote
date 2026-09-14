@@ -7,10 +7,16 @@ const TIMEOUT_MS = 15_000
 // the round trip is far slower than a text send — the brochures are 1-4MB.
 const MEDIA_TIMEOUT_MS = 90_000
 
+/** Objects inside Evolution's error arrays must be stringified, not coerced —
+ *  `String({})` / `[{}].join()` both collapse to "[object Object]" and throw
+ *  away the only useful part of the message. */
+const stringifyPart = (part) =>
+  part !== null && typeof part === 'object' ? JSON.stringify(part) : String(part)
+
 export class EvolutionError extends Error {
   /**
    * @param {string} message
-   * @param {{ code: 'upstream_unavailable' | 'send_failed', status?: number }} opts
+   * @param {{ code: 'upstream_unavailable' | 'send_failed' | 'number_not_on_whatsapp', status?: number }} opts
    */
   constructor(message, { code, status } = {}) {
     super(message)
@@ -55,11 +61,33 @@ async function request(config, path, { method = 'GET', body, timeoutMs = TIMEOUT
         status: res.status,
       })
     }
-    const message = data?.response?.message ?? data?.message ?? text
-    throw new EvolutionError(
-      Array.isArray(message) ? message.join('; ') : String(message || res.status),
-      { code: 'send_failed', status: res.status }
-    )
+    const raw = data?.response?.message ?? data?.message ?? text
+
+    // Evolution reports "that number has no WhatsApp account" as an array of
+    // `{ exists: false, jid, number }`. Worth its own code rather than an
+    // opaque passthrough: the number comes from whatever a lead typed into a
+    // web form, so this is the failure n8n will actually hit in practice.
+    if (
+      Array.isArray(raw) &&
+      raw.some((part) => part && typeof part === 'object' && part.exists === false)
+    ) {
+      const numbers = raw
+        .filter((part) => part?.exists === false)
+        .map((part) => part.number)
+        .join(', ')
+      throw new EvolutionError(`not a WhatsApp number: ${numbers}`, {
+        code: 'number_not_on_whatsapp',
+        status: res.status,
+      })
+    }
+
+    const message = Array.isArray(raw)
+      ? raw.map(stringifyPart).join('; ')
+      : stringifyPart(raw)
+    throw new EvolutionError(String(message || res.status), {
+      code: 'send_failed',
+      status: res.status,
+    })
   }
 
   return data

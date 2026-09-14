@@ -157,3 +157,37 @@ test('POST /send with malformed JSON body → 400', async (t) => {
   assert.equal(res.statusCode, 400)
   assert.equal(res.json().ok, false)
 })
+
+// Evolution's real 400 body for a number with no WhatsApp account. Parsed
+// here through the actual client so the shape stays honest, rather than
+// asserting against a hand-made EvolutionError.
+test('a number with no WhatsApp account maps to number_not_on_whatsapp', async (t) => {
+  const { sendText } = await import('../src/evolution.js')
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = async () =>
+    new Response(
+      JSON.stringify({
+        status: 400,
+        error: 'Bad Request',
+        response: {
+          message: [
+            { jid: '601236533468@s.whatsapp.net', exists: false, number: '601236533468' },
+          ],
+        },
+      }),
+      { status: 400, headers: { 'content-type': 'application/json' } }
+    )
+  t.after(() => {
+    globalThis.fetch = originalFetch
+  })
+
+  await assert.rejects(
+    () => sendText(config, { number: '601236533468', message: 'hi' }),
+    (err) => {
+      assert.equal(err.code, 'number_not_on_whatsapp')
+      assert.match(err.message, /601236533468/)
+      assert.doesNotMatch(err.message, /object Object/)
+      return true
+    }
+  )
+})

@@ -177,3 +177,24 @@ test('the real document store loads both brochures', (t) => {
   }
   assert.equal(store.get('nope'), null)
 })
+
+// Regression guard for the [object Object] bug: Evolution reports an
+// unreachable number as an array of objects, and both String() and
+// Array.join() collapse those into "[object Object]", destroying the only
+// diagnostic information in the response.
+test('an Evolution error carrying objects is not collapsed to [object Object]', async (t) => {
+  const { app } = buildTestApp(t, {
+    sendError: new EvolutionError('not a WhatsApp number: 601236533468', {
+      code: 'number_not_on_whatsapp',
+      status: 400,
+    }),
+  })
+  const res = await app.inject({
+    method: 'POST',
+    url: '/send-document',
+    headers: auth,
+    payload: { number: '0123456789', document: 'copayment' },
+  })
+  assert.equal(res.statusCode, 200)
+  assert.deepEqual(res.json(), { ok: false, error: 'number_not_on_whatsapp' })
+})
